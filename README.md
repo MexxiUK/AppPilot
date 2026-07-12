@@ -17,7 +17,7 @@ It is designed to be invoked by an LLM from a terminal or through the **Model Co
 ## One-shot install from git
 
 ```bash
-git clone <repo-url> apppilot
+git clone https://github.com/MexxiUK/AppPilot.git apppilot
 cd apppilot
 ./scripts/setup.sh
 ```

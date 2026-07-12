@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# System-wide wrapper for apppilot-mcp.
+# This script assumes the virtual environment is at the project root next to bin/.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+VENV_DIR="${PROJECT_DIR}/.venv"
+exec "${VENV_DIR}/bin/apppilot-mcp" "$@"

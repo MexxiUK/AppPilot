@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppPilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60a5fa" />
+                <stop offset="100%" stop-color="#a78bfa" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="12" fill="none" stroke="url(#logo-gradient)" stroke-width="1.8" />
+            <circle cx="16" cy="16" r="3" fill="url(#logo-gradient)" opacity="0.25" />
+            <path d="M16 4v24M4 16h24" stroke="url(#logo-gradient)" stroke-width="1" opacity="0.3" />
+            <path d="M16 16L22 10" stroke="url(#logo-gradient)" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
+        </div>
+        <h1>AppPilot</h1>
+      </div>
+      <div id="status-bar">
+        <span id="connection" class="disconnected">Disconnected</span>
+        <span class="divider"></span>
+        <span id="session-id">—</span>
+        <span class="divider"></span>
+        <span id="step-count">0 steps</span>
+      </div>
+    </header>
+
+    <main>
+      <section id="viewport" aria-label="Browser view">
+        <div id="stage">
+          <img id="live-image" src="" alt="Browser viewport" />
+          <div id="cursor" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <path d="M3 2l7 18.5 2.5-6.5 6.5-2.5z" fill="#ef4444" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div id="click-ring" aria-hidden="true"></div>
+          <div id="target-highlight" aria-hidden="true"></div>
+          <div id="narration" aria-live="polite"></div>
+          <div id="human-input-overlay">
+            <div id="human-input-box">
+              <div class="icon" aria-hidden="true">⏸</div>
+              <div id="human-input-title">Human input required</div>
+              <div id="human-input-text"></div>
+              <div id="human-input-note">Type your response in the terminal and press Enter.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside id="sidebar">
+        <div id="task-card">
+          <div class="label">Task</div>
+          <div id="task">Waiting for session…</div>
+        </div>
+        <div id="action-log"></div>
+        <div id="filmstrip"></div>
+      </aside>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

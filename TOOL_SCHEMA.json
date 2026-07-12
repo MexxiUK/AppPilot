@@ -1,0 +1,228 @@
+{
+  "name": "apppilot",
+  "description": "AI-first browser executor. The primary path runs caller-provided browser actions and returns structured perception + screenshots. The caller LLM owns the reasoning loop; this tool only drives the browser.",
+  "definitions": {
+    "action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "goto", "click", "hover", "type", "scroll", "wait",
+            "screenshot", "keypress", "keydown", "keyup",
+            "mousedown", "mouseup", "drag", "human_input", "dismiss_popup", "finish", "fail", "extract"
+          ],
+          "description": "Action type to execute."
+        },
+        "element_index": { "type": "integer", "description": "Index from the perception element list. Preferred targeting method." },
+        "x": { "type": "number", "description": "Absolute X coordinate." },
+        "y": { "type": "number", "description": "Absolute Y coordinate." },
+        "end_x": { "type": "number", "description": "Drag destination X coordinate." },
+        "end_y": { "type": "number", "description": "Drag destination Y coordinate." },
+        "selector": { "type": "string", "description": "CSS selector fallback for targeting." },
+        "text": { "type": "string", "description": "Text to type, or text label fallback for targeting." },
+        "prompt": { "type": "string", "description": "Prompt shown to the human operator for human_input actions." },
+        "key": { "type": "string", "description": "Key name for keypress/keydown/keyup, e.g. ArrowUp, Enter, w, Space." },
+        "url": { "type": "string", "description": "URL for goto actions." },
+        "direction": { "type": "string", "enum": ["up", "down"], "description": "Scroll direction." },
+        "amount": { "type": "integer", "description": "Scroll amount in pixels. Default: 300." },
+        "duration_ms": { "type": "integer", "description": "Wait duration in milliseconds. Default: 1000." },
+        "reason": { "type": "string", "description": "Optional explanation of why this action is being taken." },
+        "extract_schema": { "type": "object", "description": "For extract actions: JSON schema mapping output keys to CSS selectors. Use {\"selector\": \"...\", \"attribute\": \"text|html|href|src|count|exists\", \"multiple\": true, \"fields\": {...}} for nested data. Aliases: attr is accepted as attribute." }
+      },
+      "required": ["type"]
+    }
+  },
+  "commands": {
+    "run": {
+      "description": "Execute a caller-provided list of browser actions and return the resulting page state.",
+      "args": {
+        "actions": { "type": "string", "required": true, "description": "JSON array of action objects (see definitions.action)." },
+        "start_url": { "type": "string", "required": false, "description": "Initial URL to open before executing actions." },
+        "task": { "type": "string", "required": false, "default": "executed actions", "description": "Description of what is being tested. Used for the saved session record." },
+        "headless": { "type": "boolean", "required": false, "default": true, "description": "Run the browser without a visible window. Use --headed to set false." },
+        "dashboard": { "type": "boolean", "required": false, "default": false, "description": "Start the live streaming dashboard server." },
+        "open_browser": { "type": "boolean", "required": false, "default": false, "description": "Open a web browser to the dashboard." },
+        "output_dir": { "type": "string", "required": false, "description": "Root directory for sessions, screenshots, and reports. Set via BC_OUTPUT_DIR or this flag; required unless BC_OUTPUT_DIR is set." },
+        "json": { "type": "boolean", "required": false, "default": true, "description": "Emit JSON output to stdout." }
+      },
+      "returns": {
+        "type": "object",
+        "fields": {
+          "type": { "value": "execute_complete" },
+          "session_id": { "type": "string" },
+          "task": { "type": "string" },
+          "status": { "type": "string", "enum": ["success", "failed"] },
+          "result": { "type": "string" },
+          "extracted_data": { "type": "object", "description": "Structured data returned by the last successful extract action, if any." },
+          "step_count": { "type": "integer" },
+          "output_dir": { "type": "string" },
+          "session_path": { "type": "string" },
+          "report_path": { "type": "string" },
+          "screenshots_dir": { "type": "string" },
+          "steps": { "type": "array", "description": "List of executed actions with errors and target metadata." },
+          "perception": { "type": "object", "description": "Final page perception: URL, title, elements, logs, network summary, page errors." }
+        }
+      },
+      "exit_codes": {
+        "0": "All actions executed successfully.",
+        "1": "An action failed, arguments were invalid, or the session could not be saved."
+      }
+    },
+    "snapshot": {
+      "description": "Load a URL and return the current screenshot plus page perception.",
+      "args": {
+        "url": { "type": "string", "required": true },
+        "headless": { "type": "boolean", "required": false, "default": true },
+        "dashboard": { "type": "boolean", "required": false, "default": false },
+        "json": { "type": "boolean", "required": false, "default": true }
+      },
+      "returns": {
+        "type": "object",
+        "fields": {
+          "type": { "value": "snapshot" },
+          "url": { "type": "string" },
+          "title": { "type": "string" },
+          "screenshot_b64": { "type": "string", "description": "Base64 JPEG screenshot." },
+          "perception": { "type": "object", "description": "Page perception: URL, title, elements, logs, network summary, page errors." }
+        }
+      }
+    },
+    "inspect": {
+      "description": "Print a saved session summary without replaying it.",
+      "args": {
+        "session_id": { "type": "string", "required": true },
+        "json": { "type": "boolean", "required": false, "default": true }
+      },
+      "returns": {
+        "type": "object",
+        "fields": {
+          "type": { "value": "session" },
+          "session_id": { "type": "string" },
+          "task": { "type": "string" },
+          "start_url": { "type": "string" },
+          "status": { "type": "string" },
+          "result": { "type": "string" },
+          "session_path": { "type": "string" }
+        }
+      }
+    },
+    "replay": {
+      "description": "Replay a saved session over the dashboard WebSocket.",
+      "args": {
+        "session_id": { "type": "string", "required": true },
+        "port": { "type": "integer", "required": false },
+        "open_browser": { "type": "boolean", "required": false, "default": false },
+        "json": { "type": "boolean", "required": false, "default": true }
+      }
+    },
+    "serve": {
+      "description": "Start the dashboard server only.",
+      "args": {
+        "port": { "type": "integer", "required": false },
+        "json": { "type": "boolean", "required": false, "default": false }
+      }
+    },
+    "session": {
+      "description": "Start a persistent browser session with a streaming dashboard and a control WebSocket. The browser stays open until the process is stopped.",
+      "args": {
+        "start_url": { "type": "string", "required": false, "description": "Initial URL to open." },
+        "headless": { "type": "boolean", "required": false, "default": true, "description": "Run the browser without a visible window." },
+        "dashboard_port": { "type": "integer", "required": false, "description": "Port for the dashboard HTTP/WebSocket server. If omitted, a random high port is chosen." },
+        "control_port": { "type": "integer", "required": false, "description": "Port for the control WebSocket server. If omitted, a random high port is chosen." },
+        "open_browser": { "type": "boolean", "required": false, "default": false, "description": "Open a web browser to the dashboard." },
+        "output_dir": { "type": "string", "required": false, "description": "Root directory for sessions, screenshots, and reports. Set via BC_OUTPUT_DIR or this flag; required unless BC_OUTPUT_DIR is set." },
+        "slow_mo": { "type": "integer", "required": false, "description": "Playwright slow-mo in ms." },
+        "action_delay": { "type": "integer", "required": false, "description": "Pause before each action in ms." },
+        "wait_after": { "type": "integer", "required": false, "description": "Pause after each action in ms." }
+      }
+    },
+    "run_session": {
+      "description": "Send an action batch to a running apppilot session via its control WebSocket.",
+      "args": {
+        "actions": { "type": "string", "required": true, "description": "JSON array of action objects (see definitions.action)." },
+        "session": { "type": "string", "required": true, "description": "Control WebSocket URL, e.g. ws://localhost:49217/control" },
+        "start_url": { "type": "string", "required": false, "description": "Initial URL to open before executing actions." },
+        "task": { "type": "string", "required": false, "default": "executed actions", "description": "Description of what is being tested." },
+        "json": { "type": "boolean", "required": false, "default": true, "description": "Emit JSON output to stdout." }
+      },
+      "returns": {
+        "type": "object",
+        "fields": {
+          "type": { "value": "execute_complete" },
+          "session_id": { "type": "string" },
+          "task": { "type": "string" },
+          "status": { "type": "string", "enum": ["success", "failed"] },
+          "result": { "type": "string" },
+          "extracted_data": { "type": "object", "description": "Structured data returned by the last successful extract action, if any." },
+          "step_count": { "type": "integer" },
+          "output_dir": { "type": "string" },
+          "session_path": { "type": "string" },
+          "report_path": { "type": "string" },
+          "screenshots_dir": { "type": "string" },
+          "steps": { "type": "array" }
+        }
+      }
+    },
+    "new_test": {
+      "description": "Reset a running session for a fresh test. Navigates the browser to about:blank and clears the dashboard filmstrip/history.",
+      "args": {
+        "session": { "type": "string", "required": true, "description": "Control WebSocket URL, e.g. ws://localhost:49217/control" },
+        "json": { "type": "boolean", "required": false, "default": true, "description": "Emit JSON output to stdout." }
+      },
+      "returns": {
+        "type": "object",
+        "fields": {
+          "type": { "value": "new_test_complete" }
+        }
+      }
+    }
+  },
+  "mcp_tools": {
+    "apppilot_execute": {
+      "description": "Execute a sequence of browser actions and return the resulting page state. The caller LLM decides the actions; this tool only drives the browser. Supports structured data extraction via the extract action. Returns final perception and any extracted data; a screenshot is omitted when the last action is extract to save tokens.",
+      "args": {
+        "actions": { "type": "array", "items": { "$ref": "#/definitions/action" }, "required": true },
+        "start_url": { "type": "string", "required": false },
+        "task": { "type": "string", "required": false, "default": "executed actions" },
+        "headless": { "type": "boolean", "required": false, "default": true },
+        "dashboard": { "type": "boolean", "required": false, "default": false }
+      },
+      "returns": { "type": "execute_complete" }
+    },
+    "apppilot_snapshot": {
+      "description": "Load a URL in the browser and return a screenshot plus page perception.",
+      "args": {
+        "url": { "type": "string", "required": true },
+        "headless": { "type": "boolean", "required": false, "default": true },
+        "dashboard": { "type": "boolean", "required": false, "default": false }
+      },
+      "returns": { "type": "snapshot" }
+    },
+    "apppilot_inspect": {
+      "description": "Print a summary of a saved session without replaying it.",
+      "args": {
+        "session_id": { "type": "string", "required": true }
+      },
+      "returns": { "type": "session" }
+    },
+    "apppilot_replay": {
+      "description": "Replay a saved browser session over the dashboard WebSocket.",
+      "args": {
+        "session_id": { "type": "string", "required": true },
+        "port": { "type": "integer", "required": false }
+      },
+      "returns": { "type": "replay_complete" }
+    },
+    "apppilot_run_session": {
+      "description": "Send an action batch to a running apppilot session via its control WebSocket.",
+      "args": {
+        "actions": { "type": "array", "items": { "$ref": "#/definitions/action" }, "required": true },
+        "session": { "type": "string", "required": true },
+        "start_url": { "type": "string", "required": false },
+        "task": { "type": "string", "required": false, "default": "executed actions" }
+      },
+      "returns": { "type": "execute_complete" }
+    }
+  }
+}
